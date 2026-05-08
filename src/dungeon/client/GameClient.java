@@ -61,14 +61,18 @@ public class GameClient extends Application {
     private Image appleImg;
     private Image enemy1Img;
     private Image enemy2Img;
+    private Image shopImg;
 
     private Label uiLabel;
     private Label goldPopUp;
+    private Label msgPopUp;
     private Pane gameWorld;
+    private VBox shopUI;
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
     private int myId = -1;
+    private PrintWriter out;
 
     @Override
     public void start(Stage stage) {
@@ -99,8 +103,7 @@ public class GameClient extends Application {
         };
 
         for (String[] info : classInfo) {
-            VBox card = buildCard(stage, info);
-            cardsBox.getChildren().add(card);
+            cardsBox.getChildren().add(buildCard(stage, info));
         }
 
         mainBox.getChildren().addAll(title, cardsBox);
@@ -153,11 +156,11 @@ public class GameClient extends Application {
     }
 
     // --------------------------------------------------------
-    // الدخول للعبة
+    // الدخول للعبة والاتصال
     // --------------------------------------------------------
     private void startGame(Stage stage, String selectedClass) {
         try {
-            // تحميل جميع الصور هنا
+            // تحميل الصور كلها
             wallImg = new Image("file:assets/wall.png");
             floorImg = new Image("file:assets/floor.png");
             doorImg = new Image("file:assets/door.png");
@@ -167,6 +170,7 @@ public class GameClient extends Application {
             chestOpenImg = new Image("file:assets/chest_open.png");
             enemy1Img = new Image("file:assets/enemy1.png");
             enemy2Img = new Image("file:assets/enemy2.png");
+            shopImg = new Image("file:assets/shop.png");
 
             classImages.put("warrior", new Image("file:assets/warrior.png"));
             classImages.put("rogue", new Image("file:assets/rogue.png"));
@@ -174,27 +178,57 @@ public class GameClient extends Application {
 
             Socket socket = new Socket("localhost", 5000);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out = new PrintWriter(socket.getOutputStream(), true);
 
             out.println("INIT:" + selectedClass);
 
             gameWorld = new Pane();
             Rectangle fog = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.5));
 
-            // واجهة المستخدم (UI)
-            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  🎒 Inventory: Empty");
+            // تصميم الـ UI بتاع الدم والفلوس
+            uiLabel = new Label("");
             uiLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
             uiLabel.setLayoutX(10);
             uiLabel.setLayoutY(10);
 
+            // تأثير الـ 50 كوين
             goldPopUp = new Label("+50 Coins!");
             goldPopUp.setStyle("-fx-text-fill: #00ff00; -fx-font-size: 26px; -fx-font-weight: bold;");
             goldPopUp.setOpacity(0);
             goldPopUp.setLayoutX(250);
             goldPopUp.setLayoutY(250);
 
-            Group rootGroup = new Group(gameWorld, fog, uiLabel, goldPopUp);
-            Scene scene = new Scene(rootGroup, 600, 600);
+            // رسائل المتجر
+            msgPopUp = new Label("");
+            msgPopUp.setStyle("-fx-text-fill: #ffcc00; -fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-border-radius: 10px;");
+            msgPopUp.setOpacity(0);
+            msgPopUp.setLayoutX(150);
+            msgPopUp.setLayoutY(100);
+
+            // واجهة المتجر (Shop)
+            shopUI = new VBox(15);
+            shopUI.setAlignment(Pos.CENTER);
+            shopUI.setStyle("-fx-background-color: rgba(30,30,40,0.95); -fx-border-color: gold; -fx-border-width: 3; -fx-padding: 20; -fx-border-radius: 10; -fx-background-radius: 10;");
+            shopUI.setLayoutX(150);
+            shopUI.setLayoutY(150);
+            shopUI.setPrefSize(300, 200);
+            shopUI.setVisible(false);
+
+            Label shopTitle = new Label("🛒 UPGRADE SHOP");
+            shopTitle.setStyle("-fx-text-fill: gold; -fx-font-size: 20px; -fx-font-weight: bold;");
+
+            Button buyShield = new Button("Buy Shield (+20) - 50 Coins");
+            buyShield.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+
+            Button buyAttack = new Button("Buy Attack (+10) - 100 Coins");
+            buyAttack.setStyle("-fx-background-color: #f44336; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+
+            buyShield.setOnAction(e -> out.println("BUY:SHIELD"));
+            buyAttack.setOnAction(e -> out.println("BUY:ATTACK"));
+
+            shopUI.getChildren().addAll(shopTitle, buyShield, buyAttack);
+
+            Scene scene = new Scene(new Group(gameWorld, fog, uiLabel, goldPopUp, msgPopUp, shopUI), 600, 600);
 
             // أزرار التحكم
             scene.setOnKeyPressed(e -> {
@@ -205,9 +239,10 @@ public class GameClient extends Application {
                 if (e.getCode() == KeyCode.E) out.println("INTERACT");
                 if (e.getCode() == KeyCode.F) out.println("USE_APPLE");
                 if (e.getCode() == KeyCode.SPACE) out.println("ATTACK");
+                if (e.getCode() == KeyCode.B) shopUI.setVisible(!shopUI.isVisible());
             });
 
-            // Thread الاستقبال
+            // استقبال التحديثات من السيرفر
             new Thread(() -> {
                 try {
                     String line;
@@ -216,14 +251,11 @@ public class GameClient extends Application {
                         Platform.runLater(() -> {
                             if (fl.startsWith("MYID:")) {
                                 myId = Integer.parseInt(fl.substring(5));
-                            }
-                            else if (fl.startsWith("MAP:")) {
+                            } else if (fl.startsWith("MAP:")) {
                                 drawMap(fl.substring(4), gameWorld);
-                            }
-                            else if (fl.startsWith("STATE:")) {
+                            } else if (fl.startsWith("STATE:")) {
                                 updateUI(fl.substring(6), gameWorld);
-                            }
-                            else if (fl.startsWith("EVENT:")) {
+                            } else if (fl.startsWith("EVENT:")) {
                                 handleEvent(fl.substring(6));
                             }
                         });
@@ -241,7 +273,7 @@ public class GameClient extends Application {
     }
 
     // --------------------------------------------------------
-    // التفاعل مع الأحداث (السيف، القنبلة، الفلوس)
+    // التعامل مع الأحداث
     // --------------------------------------------------------
     private void handleEvent(String evt) {
         if (evt.equals("GOLD_GAIN")) {
@@ -258,12 +290,21 @@ public class GameClient extends Application {
             moveUp.play();
             fade.play();
         }
+        else if (evt.equals("SHOP_SUCCESS")) {
+            showMsg("Upgrade Bought Successfully!");
+        }
+        else if (evt.equals("SHOP_FAIL")) {
+            showMsg("Not Enough Coins!");
+        }
+        else if (evt.equals("SHOP_FAR")) {
+            showMsg("You are too far from the Shop!");
+        }
         else if (evt.startsWith("EXPLOSION:")) {
             String[] p = evt.split(":");
-            double x = Integer.parseInt(p[1]) * TILE_SIZE;
-            double y = Integer.parseInt(p[2]) * TILE_SIZE;
+            double exX = Integer.parseInt(p[1]) * TILE_SIZE - TILE_SIZE;
+            double exY = Integer.parseInt(p[2]) * TILE_SIZE - TILE_SIZE;
 
-            Rectangle exp = new Rectangle(x - TILE_SIZE, y - TILE_SIZE, TILE_SIZE * 3, TILE_SIZE * 3);
+            Rectangle exp = new Rectangle(exX, exY, TILE_SIZE * 3, TILE_SIZE * 3);
             exp.setFill(Color.rgb(255, 50, 0, 0.6));
             gameWorld.getChildren().add(exp);
 
@@ -274,10 +315,10 @@ public class GameClient extends Application {
         }
         else if (evt.startsWith("SLASH:")) {
             String[] p = evt.split(":");
-            double x = Integer.parseInt(p[1]) * TILE_SIZE;
-            double y = Integer.parseInt(p[2]) * TILE_SIZE;
+            double sX = Integer.parseInt(p[1]) * TILE_SIZE;
+            double sY = Integer.parseInt(p[2]) * TILE_SIZE;
 
-            Rectangle slash = new Rectangle(x, y, TILE_SIZE, TILE_SIZE);
+            Rectangle slash = new Rectangle(sX, sY, TILE_SIZE, TILE_SIZE);
             slash.setFill(Color.WHITE);
             gameWorld.getChildren().add(slash);
 
@@ -288,8 +329,24 @@ public class GameClient extends Application {
         }
     }
 
+    private void showMsg(String text) {
+        msgPopUp.setText(text);
+        msgPopUp.setOpacity(1.0);
+        msgPopUp.setTranslateY(0);
+
+        TranslateTransition moveUp = new TranslateTransition(Duration.millis(1500), msgPopUp);
+        moveUp.setByY(-30);
+
+        FadeTransition fade = new FadeTransition(Duration.millis(1500), msgPopUp);
+        fade.setFromValue(1.0);
+        fade.setToValue(0.0);
+
+        moveUp.play();
+        fade.play();
+    }
+
     // --------------------------------------------------------
-    // رسم الخريطة (وتكبير الصناديق والمفاتيح)
+    // رسم الخريطة والأشياء الثابتة
     // --------------------------------------------------------
     private void drawMap(String mapData, Pane gameWorld) {
         gameWorld.getChildren().removeIf(node ->
@@ -344,11 +401,19 @@ public class GameClient extends Application {
                 }
                 else if (tile == '7') {
                     ImageView apple = new ImageView(appleImg);
-                    apple.setFitWidth(TILE_SIZE - 4);
-                    apple.setFitHeight(TILE_SIZE - 4);
-                    apple.setX((j * TILE_SIZE) + 2);
-                    apple.setY((i * TILE_SIZE) + 2);
+                    apple.setFitWidth(TILE_SIZE + 4);
+                    apple.setFitHeight(TILE_SIZE + 4);
+                    apple.setX((j * TILE_SIZE) - 2);
+                    apple.setY((i * TILE_SIZE) - 2);
                     gameWorld.getChildren().add(apple);
+                }
+                else if (tile == '8') {
+                    ImageView shop = new ImageView(shopImg);
+                    shop.setX(j * TILE_SIZE);
+                    shop.setY(i * TILE_SIZE);
+                    shop.setFitWidth(TILE_SIZE);
+                    shop.setFitHeight(TILE_SIZE);
+                    gameWorld.getChildren().add(shop);
                 }
             }
         }
@@ -365,7 +430,7 @@ public class GameClient extends Application {
     }
 
     // --------------------------------------------------------
-    // تحديث الشاشة
+    // تحديث الشاشة ورسم اللعيبة والوحوش والأسلحة
     // --------------------------------------------------------
     private void updateUI(String stateData, Pane gameWorld) {
         if (stateData.trim().isEmpty()) {
@@ -382,7 +447,6 @@ public class GameClient extends Application {
 
             String[] parts = pData.split(",");
 
-            // ============== بيانات اللاعب ==============
             if (parts[0].equals("P")) {
                 int id = Integer.parseInt(parts[1]);
                 int gridX = Integer.parseInt(parts[2]);
@@ -392,11 +456,13 @@ public class GameClient extends Application {
                 String hasKey = parts[6];
                 int hp = Integer.parseInt(parts[7]);
                 int apples = Integer.parseInt(parts[8]);
+                int shield = Integer.parseInt(parts[9]);
+                int attack = Integer.parseInt(parts[10]);
 
                 activeIds.put(id, true);
 
                 if (id == myId) {
-                    uiLabel.setText("❤ HP: " + hp + "  |  💰 Coins: " + coins + "  |  🎒 Inv: " + (hasKey.equals("1") ? "Key" : "Empty") + " (🍎x" + apples + ")");
+                    uiLabel.setText("❤ HP: " + hp + " | 🛡 Shield: " + shield + " | ⚔ Attack: " + attack + "\n💰 Coins: " + coins + " | 🎒 Inv: " + (hasKey.equals("1") ? "Key" : "Empty") + " (🍎x" + apples + ")");
                     String color = hp > 50 ? "#00ff00" : (hp > 20 ? "orange" : "red");
                     uiLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
                 }
@@ -450,8 +516,8 @@ public class GameClient extends Application {
                     if (Math.abs(newX - oldX) > 0.5 || Math.abs(newY - oldY) > 0.5) {
                         idle.stop();
                         iv.setTranslateY(0);
-                        int row;
 
+                        int row;
                         if (newX > oldX) {
                             row = c.rowSide * playerFrameH.get(id);
                             iv.setScaleX(-1);
@@ -487,7 +553,6 @@ public class GameClient extends Application {
                     gameWorld.setTranslateY(-((gridY / ROOM_SIZE) * ROOM_SIZE * TILE_SIZE));
                 }
             }
-            // ============== بيانات الوحوش ==============
             else if (parts[0].equals("E")) {
                 int id = Integer.parseInt(parts[1]);
                 int type = Integer.parseInt(parts[4]);
@@ -522,7 +587,6 @@ public class GameClient extends Application {
                     ev.setY(screenY + 2);
                 }
             }
-            // ============== بيانات المقذوفات ==============
             else if (parts[0].equals("PRJ")) {
                 int id = Integer.parseInt(parts[1]);
                 int type = Integer.parseInt(parts[2]);
@@ -539,11 +603,13 @@ public class GameClient extends Application {
                         rect.setFill(Color.YELLOW);
                         int dx = Integer.parseInt(parts[5]);
                         int dy = Integer.parseInt(parts[6]);
+
                         if (dx != 0) {
                             rect.setRotate(dx == 1 ? 0 : 180);
                         } else {
                             rect.setRotate(dy == 1 ? 90 : -90);
                         }
+
                         prjNode = rect;
                     } else {
                         Circle circle = new Circle(px, py, 8, Color.BLACK);
@@ -570,7 +636,6 @@ public class GameClient extends Application {
             }
         }
 
-        // مسح الحاجات اللي اختفت
         playersOnScreen.entrySet().removeIf(e -> {
             if (!activeIds.containsKey(e.getKey())) {
                 gameWorld.getChildren().remove(e.getValue());

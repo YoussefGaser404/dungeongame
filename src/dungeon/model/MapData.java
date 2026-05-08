@@ -16,27 +16,23 @@ public class MapData {
     }
 
     private void generateRooms() {
-        // 1. الخريطة كلها حيطان مقفولة في الأول
         for (int r = 0; r < ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
                 grid[r][c] = 1;
             }
         }
 
-        // 2. حفر الغرف (9 غرف)
         for (int roomY = 0; roomY < 3; roomY++) {
             for (int roomX = 0; roomX < 3; roomX++) {
                 int startX = roomX * ROOM_SIZE;
                 int startY = roomY * ROOM_SIZE;
 
-                // حفر الأرضية جوه الأوضة
                 for (int y = startY + 1; y < startY + ROOM_SIZE - 1; y++) {
                     for (int x = startX + 1; x < startX + ROOM_SIZE - 1; x++) {
                         grid[y][x] = 0;
                     }
                 }
 
-                // 3. فتح الأبواب والبيبان (5 = باب)
                 if (roomX < 2) {
                     grid[startY + 7][startX + 14] = 5;
                     grid[startY + 7][startX + 15] = 5;
@@ -46,39 +42,39 @@ public class MapData {
                     grid[startY + 15][startX + 7] = 5;
                 }
 
-                // 4. نظام الغرف الاحترافي (Patterns)
-                int pattern = random.nextInt(4); // بيختار نمط من 4 عشوائي
+                int pattern = random.nextInt(4);
 
-                // النمط 0: حواجز متقاطعة
                 if (pattern == 0) {
-                    for(int x=2; x<=5; x++) grid[startY+7][startX+x] = 3;
-                    for(int x=9; x<=12; x++) grid[startY+7][startX+x] = 3;
-                    for(int y=2; y<=5; y++) grid[startY+y][startX+7] = 3;
-                    for(int y=9; y<=12; y++) grid[startY+y][startX+7] = 3;
+                    for(int y=3; y<=11; y++) { grid[startY+y][startX+4] = 3; grid[startY+y][startX+10] = 3; }
+                    grid[startY+7][startX+4] = 0; grid[startY+7][startX+10] = 0;
                 }
-                // النمط 1: عمود ضخم في النص
                 else if (pattern == 1) {
-                    for(int y=6; y<=8; y++) for(int x=6; x<=8; x++) grid[startY+y][startX+x] = 3;
+                    for(int i=4; i<=10; i++) { grid[startY+7][startX+i] = 3; grid[startY+i][startX+7] = 3; }
                 }
-                // النمط 2: 4 أعمدة في الأركان
                 else if (pattern == 2) {
-                    grid[startY+3][startX+3] = 3; grid[startY+3][startX+4] = 3; grid[startY+4][startX+3] = 3; grid[startY+4][startX+4] = 3;
-                    grid[startY+3][startX+10] = 3; grid[startY+3][startX+11] = 3; grid[startY+4][startX+10] = 3; grid[startY+4][startX+11] = 3;
-                    grid[startY+10][startX+3] = 3; grid[startY+10][startX+4] = 3; grid[startY+11][startX+3] = 3; grid[startY+11][startX+4] = 3;
-                    grid[startY+10][startX+10] = 3; grid[startY+10][startX+11] = 3; grid[startY+11][startX+10] = 3; grid[startY+11][startX+11] = 3;
+                    for(int i=2; i<=4; i++) { grid[startY+i][startX+2]=3; grid[startY+2][startX+i]=3; }
+                    for(int i=10; i<=12; i++) { grid[startY+i][startX+12]=3; grid[startY+12][startX+i]=3; }
+                    for(int i=2; i<=4; i++) { grid[startY+12][startX+i]=3; grid[startY+10+i-2][startX+2]=3; }
+                    for(int i=10; i<=12; i++) { grid[startY+2][startX+i]=3; grid[startY+i-8][startX+12]=3; }
                 }
-                // النمط 3: أوضة فاضية (عشان التنوع)
+                else if (pattern == 3) {
+                    for(int x=3; x<=11; x++) grid[startY+3][startX+x] = 3;
+                    for(int x=3; x<=11; x++) grid[startY+11][startX+x] = 3;
+                    for(int y=5; y<=9; y++) grid[startY+y][startX+7] = 3;
+                }
 
-                // 5. وضع الصناديق والمفاتيح بشكل متطابق 100%
-                int itemsCount = 1 + random.nextInt(2); // من صندوق لصندوقين في الأوضة
-                placeItems(startX, startY, 2, itemsCount); // 2 = صندوق مقفول
-                placeItems(startX, startY, 4, itemsCount); // 4 = مفتاح
+                if (roomX == 1 && roomY == 1) {
+                    grid[startY + 7][startX + 7] = 8;
+                }
 
-                // 6. توزيع التفاح (نسبة 3% يطلع تفاحة في أي حتة فاضية)
+                int itemsCount = 1 + random.nextInt(2);
+                placeItems(startX, startY, 2, itemsCount);
+                placeItems(startX, startY, 4, itemsCount);
+
                 for (int y = startY + 2; y < startY + ROOM_SIZE - 2; y++) {
                     for (int x = startX + 2; x < startX + ROOM_SIZE - 2; x++) {
                         if (grid[y][x] == 0 && random.nextDouble() < 0.03) {
-                            grid[y][x] = 7; // 7 = تفاحة
+                            grid[y][x] = 7;
                         }
                     }
                 }
@@ -91,7 +87,7 @@ public class MapData {
         while (placed < count) {
             int px = startX + 2 + random.nextInt(ROOM_SIZE - 4);
             int py = startY + 2 + random.nextInt(ROOM_SIZE - 4);
-            if (grid[py][px] == 0) { // لو المكان فاضي (أرضية)
+            if (grid[py][px] == 0) {
                 grid[py][px] = itemType;
                 placed++;
             }
