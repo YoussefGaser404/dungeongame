@@ -21,7 +21,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
-import javafx.scene.effect.BlendMode;
+import javafx.scene.shape.Shape;
 import javafx.scene.effect.GaussianBlur;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
@@ -76,9 +76,8 @@ public class GameClient extends Application {
     private StackPane shopOverlay;
     private Label shopStatus;
     private Group fogLayer;
-    private Rectangle fogRect;
-    private Circle playerLight;
-    private Circle kioskLight;
+    private Shape fogMask;
+    private GaussianBlur fogBlur;
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
@@ -411,17 +410,10 @@ public class GameClient extends Application {
     }
 
     private Group buildFogLayer() {
-        fogRect = new Rectangle(600, 600, Color.rgb(30, 30, 30, 0.55));
-        playerLight = new Circle(75, Color.TRANSPARENT);
-        playerLight.setBlendMode(BlendMode.CLEAR);
-        playerLight.setEffect(new GaussianBlur(25));
-
-        kioskLight = new Circle(120, Color.TRANSPARENT);
-        kioskLight.setBlendMode(BlendMode.CLEAR);
-        kioskLight.setEffect(new GaussianBlur(35));
-        kioskLight.setVisible(false);
-
-        Group group = new Group(fogRect, kioskLight, playerLight);
+        fogBlur = new GaussianBlur(24);
+        fogMask = new Rectangle(600, 600, Color.rgb(30, 30, 30, 0.55));
+        fogMask.setEffect(fogBlur);
+        Group group = new Group(fogMask);
         group.setMouseTransparent(true);
         return group;
     }
@@ -510,21 +502,27 @@ public class GameClient extends Application {
         if (fogLayer == null || gameWorld == null) {
             return;
         }
+        double offsetX = gameWorld.getTranslateX();
+        double offsetY = gameWorld.getTranslateY();
+
+        Shape mask = new Rectangle(600, 600);
         if (myGridX >= 0 && myGridY >= 0) {
-            double offsetX = gameWorld.getTranslateX();
-            double offsetY = gameWorld.getTranslateY();
-            playerLight.setCenterX(myGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX);
-            playerLight.setCenterY(myGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY);
+            double px = myGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX;
+            double py = myGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY;
+            mask = Shape.subtract(mask, new Circle(px, py, 75));
         }
         if (kioskGridX >= 0 && kioskGridY >= 0) {
-            double offsetX = gameWorld.getTranslateX();
-            double offsetY = gameWorld.getTranslateY();
-            kioskLight.setCenterX(kioskGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX);
-            kioskLight.setCenterY(kioskGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY);
-            kioskLight.setVisible(true);
-        } else {
-            kioskLight.setVisible(false);
+            double kx = kioskGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX;
+            double ky = kioskGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY;
+            mask = Shape.subtract(mask, new Circle(kx, ky, 120));
         }
+        mask.setFill(Color.rgb(30, 30, 30, 0.55));
+        if (fogBlur == null) {
+            fogBlur = new GaussianBlur(24);
+        }
+        mask.setEffect(fogBlur);
+        fogLayer.getChildren().setAll(mask);
+        fogMask = mask;
     }
 
     // --------------------------------------------------------
