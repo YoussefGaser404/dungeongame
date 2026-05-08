@@ -1,6 +1,7 @@
 package dungeon.server;
 
 import dungeon.model.GameConstants;
+import dungeon.model.MapData;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -48,7 +49,7 @@ public class ClientHandler implements Runnable {
                         int newX = player.x + dx;
                         int newY = player.y + dy;
 
-                        if (newY >= 0 && newY < dungeon.model.MapData.ROWS && newX >= 0 && newX < dungeon.model.MapData.COLS) {
+                        if (newY >= 0 && newY < MapData.ROWS && newX >= 0 && newX < MapData.COLS) {
                             int tile = GameServer.gameState.map.grid[newY][newX];
 
                             // 0=أرضية, 4=مفتاح, 5=باب, 6=صندوق مفتوح, 7=تفاحة (عشان تمشي عليها وتلمها)
@@ -81,7 +82,7 @@ public class ClientHandler implements Runnable {
 
                         for (int[] d : dirs) {
                             int cx = player.x + d[0], cy = player.y + d[1];
-                            if (cx >= 0 && cx < dungeon.model.MapData.COLS && cy >= 0 && cy < dungeon.model.MapData.ROWS) {
+                            if (cx >= 0 && cx < MapData.COLS && cy >= 0 && cy < MapData.ROWS) {
                                 if (GameServer.gameState.map.grid[cy][cx] == 2 && player.inventory.contains("Key")) {
                                     player.inventory.remove("Key");
                                     GameServer.gameState.map.grid[cy][cx] = 6;
@@ -143,9 +144,9 @@ public class ClientHandler implements Runnable {
     }
 
     private boolean isNearKiosk(GameState.PlayerInv player) {
-        for (int[] d : GameConstants.NEAR_DIRS) {
+        for (int[] d : GameConstants.ADJACENT_DIRECTIONS) {
             int cx = player.x + d[0], cy = player.y + d[1];
-            if (cx >= 0 && cx < dungeon.model.MapData.COLS && cy >= 0 && cy < dungeon.model.MapData.ROWS) {
+            if (cx >= 0 && cx < MapData.COLS && cy >= 0 && cy < MapData.ROWS) {
                 if (GameServer.gameState.map.grid[cy][cx] == 8) {
                     return true;
                 }

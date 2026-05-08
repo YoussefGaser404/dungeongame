@@ -6,6 +6,7 @@ public class MapData {
     public static final int ROOM_SIZE = 15;
     public static final int COLS = ROOM_SIZE * 3;
     public static final int ROWS = ROOM_SIZE * 3;
+    private static final int WALL_THICKNESS = 1;
     public int[][] grid;
     private Random random;
 
@@ -29,8 +30,8 @@ public class MapData {
                 int startX = roomX * ROOM_SIZE;
                 int startY = roomY * ROOM_SIZE;
 
-                int innerStartX = startX + (roomX == 0 ? 1 : 0);
-                int innerStartY = startY + (roomY == 0 ? 1 : 0);
+                int innerStartX = startX + (roomX == 0 ? WALL_THICKNESS : 0);
+                int innerStartY = startY + (roomY == 0 ? WALL_THICKNESS : 0);
 
                 // حفر الأرضية جوه الأوضة
                 for (int y = innerStartY; y < startY + ROOM_SIZE - 1; y++) {
@@ -39,8 +40,8 @@ public class MapData {
                     }
                 }
 
-                int roomCenterX = innerStartX + (ROOM_SIZE - 2) / 2;
-                int roomCenterY = innerStartY + (ROOM_SIZE - 2) / 2;
+                int roomCenterX = innerStartX + (ROOM_SIZE - WALL_THICKNESS * 2) / 2;
+                int roomCenterY = innerStartY + (ROOM_SIZE - WALL_THICKNESS * 2) / 2;
 
                 // 3. فتح الأبواب والبيبان (5 = باب)
                 if (roomX < 2) {

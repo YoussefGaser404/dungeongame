@@ -391,16 +391,20 @@ public class GameClient extends Application {
         if (mapGrid == null || myGridX < 0 || myGridY < 0) {
             return false;
         }
-        for (int[] d : GameConstants.NEAR_DIRS) {
+        for (int[] d : GameConstants.ADJACENT_DIRECTIONS) {
             int nx = myGridX + d[0];
             int ny = myGridY + d[1];
-            if (ny >= 0 && ny < mapGrid.length && nx >= 0 && nx < mapGrid[0].length) {
+            if (isValidGridPosition(nx, ny)) {
                 if (mapGrid[ny][nx] == '8') {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    private boolean isValidGridPosition(int x, int y) {
+        return mapGrid != null && y >= 0 && y < mapGrid.length && x >= 0 && x < mapGrid[0].length;
     }
 
     private void showToast(String text, String color) {
