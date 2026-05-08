@@ -7,6 +7,7 @@ public final class GameConstants {
     public static final int ATTACK_COST = 150;
     public static final int APPLE_COST = 40;
     public static final int QUESTION_COST = 60;
+    public static final double APPLE_SPAWN_CHANCE = 0.4;
     public static final int[][] ADJACENT_DIRECTIONS = {{0,1}, {0,-1}, {1,0}, {-1,0}, {0,0}};
 
     private GameConstants() {

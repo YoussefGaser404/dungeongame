@@ -85,7 +85,7 @@ public class MapData {
                 }
 
                 // 7. توزيع التفاح (عدد أقل في كل أوضة)
-                int applesCount = random.nextDouble() < 0.4 ? 1 : 0;
+                int applesCount = random.nextDouble() < GameConstants.APPLE_SPAWN_CHANCE ? 1 : 0;
                 placeItems(startX, startY, 7, applesCount);
             }
         }
