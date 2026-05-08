@@ -391,8 +391,7 @@ public class GameClient extends Application {
         if (mapGrid == null || myGridX < 0 || myGridY < 0) {
             return false;
         }
-        int[][] dirs = {{0,1}, {0,-1}, {1,0}, {-1,0}, {0,0}};
-        for (int[] d : dirs) {
+        for (int[] d : GameConstants.NEAR_DIRS) {
             int nx = myGridX + d[0];
             int ny = myGridY + d[1];
             if (ny >= 0 && ny < mapGrid.length && nx >= 0 && nx < mapGrid[0].length) {

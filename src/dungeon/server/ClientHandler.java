@@ -143,8 +143,7 @@ public class ClientHandler implements Runnable {
     }
 
     private boolean isNearKiosk(GameState.PlayerInv player) {
-        int[][] dirs = {{0,1}, {0,-1}, {1,0}, {-1,0}, {0,0}};
-        for (int[] d : dirs) {
+        for (int[] d : GameConstants.NEAR_DIRS) {
             int cx = player.x + d[0], cy = player.y + d[1];
             if (cx >= 0 && cx < dungeon.model.MapData.COLS && cy >= 0 && cy < dungeon.model.MapData.ROWS) {
                 if (GameServer.gameState.map.grid[cy][cx] == 8) {
