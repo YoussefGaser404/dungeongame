@@ -39,12 +39,15 @@ public class MapData {
                     }
                 }
 
+                int doorOffsetX = innerStartX + (ROOM_SIZE - 2) / 2;
+                int doorOffsetY = innerStartY + (ROOM_SIZE - 2) / 2;
+
                 // 3. فتح الأبواب والبيبان (5 = باب)
                 if (roomX < 2) {
-                    grid[startY + 7][startX + ROOM_SIZE - 1] = 5;
+                    grid[doorOffsetY][startX + ROOM_SIZE - 1] = 5;
                 }
                 if (roomY < 2) {
-                    grid[startY + ROOM_SIZE - 1][startX + 7] = 5;
+                    grid[startY + ROOM_SIZE - 1][doorOffsetX] = 5;
                 }
 
                 // 4. نظام الغرف الاحترافي (Patterns)

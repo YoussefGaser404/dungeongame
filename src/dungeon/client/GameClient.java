@@ -72,6 +72,8 @@ public class GameClient extends Application {
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
+    private static final int DEFAULT_ATTACK = 10;
+    private static final int DEFAULT_DEFENSE = 0;
     private static final int SHIELD_COST = 100;
     private static final int ATTACK_COST = 150;
     private int myId = -1;
@@ -193,7 +195,7 @@ public class GameClient extends Application {
             Rectangle fog = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.5));
 
             // واجهة المستخدم (UI)
-            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: 10  |  🛡 DEF: 0  |  🎒 Inventory: Empty");
+            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: " + DEFAULT_ATTACK + "  |  🛡 DEF: " + DEFAULT_DEFENSE + "  |  🎒 Inventory: Empty");
             uiLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
             uiLabel.setLayoutX(10);
             uiLabel.setLayoutY(10);
@@ -536,8 +538,8 @@ public class GameClient extends Application {
                 String hasKey = parts[6];
                 int hp = Integer.parseInt(parts[7]);
                 int apples = Integer.parseInt(parts[8]);
-                int attack = parts.length > 9 ? Integer.parseInt(parts[9]) : 10;
-                int defense = parts.length > 10 ? Integer.parseInt(parts[10]) : 0;
+                int attack = parts.length > 9 ? Integer.parseInt(parts[9]) : DEFAULT_ATTACK;
+                int defense = parts.length > 10 ? Integer.parseInt(parts[10]) : DEFAULT_DEFENSE;
 
                 activeIds.put(id, true);
 
