@@ -7,12 +7,20 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ClientHandler implements Runnable {
     private Socket socket;
     private int playerId;
     private PrintWriter out;
     private BufferedReader in;
+    private static final String[] KIOSK_QUESTIONS = {
+            "Do you trust the shadows?",
+            "Would you trade health for power?",
+            "Which path feels safer, left or right?",
+            "Will you face the boss or hide?",
+            "How many coins would you risk for glory?"
+    };
 
     public ClientHandler(Socket socket, int playerId) {
         this.socket = socket;
@@ -106,6 +114,12 @@ public class ClientHandler implements Runnable {
                             handlePurchase(player, GameConstants.SHIELD_COST, "SHIELD", () -> player.defense += 5);
                         } else if (item.equals("ATTACK")) {
                             handlePurchase(player, GameConstants.ATTACK_COST, "ATTACK", () -> player.attack += 5);
+                        } else if (item.equals("APPLE")) {
+                            handlePurchase(player, GameConstants.APPLE_COST, "APPLE", () -> player.applesCount += 1);
+                        } else if (item.equals("QUESTION")) {
+                            if (handlePurchase(player, GameConstants.QUESTION_COST, "QUESTION", () -> {})) {
+                                send("EVENT:QUESTION:" + randomQuestion());
+                            }
                         }
                     }
                 } else if (message.equals("ATTACK")) {
@@ -155,13 +169,19 @@ public class ClientHandler implements Runnable {
         return false;
     }
 
-    private void handlePurchase(GameState.PlayerInv player, int cost, String item, Runnable applyItem) {
+    private boolean handlePurchase(GameState.PlayerInv player, int cost, String item, Runnable applyItem) {
         if (player.coins < cost) {
             send("EVENT:SHOP_FAIL:COINS");
-            return;
+            return false;
         }
         player.coins -= cost;
         applyItem.run();
         send("EVENT:SHOP_OK:" + item);
+        return true;
+    }
+
+    private String randomQuestion() {
+        int idx = ThreadLocalRandom.current().nextInt(KIOSK_QUESTIONS.length);
+        return KIOSK_QUESTIONS[idx];
     }
 }

@@ -21,6 +21,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.GaussianBlur;
 import javafx.stage.Stage;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -32,6 +34,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 
 public class GameClient extends Application {
@@ -68,17 +71,25 @@ public class GameClient extends Application {
     private Label uiLabel;
     private Label goldPopUp;
     private Label toastLabel;
+    private VBox feedBox;
     private Pane gameWorld;
     private StackPane shopOverlay;
     private Label shopStatus;
+    private Group fogLayer;
+    private Rectangle fogRect;
+    private Circle playerLight;
+    private Circle kioskLight;
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
     private int myId = -1;
     private int myGridX = -1;
     private int myGridY = -1;
+    private int kioskGridX = -1;
+    private int kioskGridY = -1;
     private char[][] mapGrid;
     private PrintWriter out;
+    private final ArrayDeque<String> feedMessages = new ArrayDeque<>();
 
     @Override
     public void start(Stage stage) {
@@ -190,7 +201,7 @@ public class GameClient extends Application {
             out.println("INIT:" + selectedClass);
 
             gameWorld = new Pane();
-            Rectangle fog = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.5));
+            fogLayer = buildFogLayer();
 
             // واجهة المستخدم (UI)
             uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: " + GameConstants.DEFAULT_ATTACK + "  |  🛡 DEF: " + GameConstants.DEFAULT_DEFENSE + "  |  🎒 Inventory: Empty");
@@ -210,9 +221,12 @@ public class GameClient extends Application {
             toastLabel.setLayoutX(150);
             toastLabel.setLayoutY(60);
 
+            feedBox = buildFeedBox();
+            pushFeedMessage("Kiosk feed online.");
+
             shopOverlay = buildShopOverlay();
 
-            Group rootGroup = new Group(gameWorld, fog, uiLabel, goldPopUp, toastLabel, shopOverlay);
+            Group rootGroup = new Group(gameWorld, fogLayer, uiLabel, goldPopUp, toastLabel, feedBox, shopOverlay);
             Scene scene = new Scene(rootGroup, 600, 600);
 
             // أزرار التحكم
@@ -221,10 +235,9 @@ public class GameClient extends Application {
                 if (e.getCode() == KeyCode.S || e.getCode() == KeyCode.DOWN) out.println("DOWN");
                 if (e.getCode() == KeyCode.A || e.getCode() == KeyCode.LEFT) out.println("LEFT");
                 if (e.getCode() == KeyCode.D || e.getCode() == KeyCode.RIGHT) out.println("RIGHT");
-                if (e.getCode() == KeyCode.E) {
-                    if (!tryToggleShop()) {
-                        out.println("INTERACT");
-                    }
+                if (e.getCode() == KeyCode.E) out.println("INTERACT");
+                if (e.getCode() == KeyCode.P) {
+                    tryToggleShop();
                 }
                 if (e.getCode() == KeyCode.F) out.println("USE_APPLE");
                 if (e.getCode() == KeyCode.SPACE) out.println("ATTACK");
@@ -283,8 +296,17 @@ public class GameClient extends Application {
         }
         else if (evt.startsWith("SHOP_OK:")) {
             String item = evt.split(":")[1];
-            showToast("Purchased " + item + "!", "#00ff88");
-            updateShopStatus("Purchased " + item + " ✅", "#00ff88");
+            if (item.equals("QUESTION")) {
+                showToast("Question unlocked!", "#00ff88");
+                updateShopStatus("Question unlocked ✅", "#00ff88");
+                pushFeedMessage("🧠 A new question arrives...");
+            } else {
+                showToast("Purchased " + item + "!", "#00ff88");
+                updateShopStatus("Purchased " + item + " ✅", "#00ff88");
+                if (item.equals("APPLE")) {
+                    pushFeedMessage("🍎 Apple added to your bag.");
+                }
+            }
         }
         else if (evt.startsWith("SHOP_FAIL:")) {
             String reason = evt.split(":")[1];
@@ -298,6 +320,10 @@ public class GameClient extends Application {
                 showToast("Purchase failed.", "#ff5555");
                 updateShopStatus("Purchase failed ❌", "#ff5555");
             }
+        }
+        else if (evt.startsWith("QUESTION:")) {
+            String q = evt.substring("QUESTION:".length());
+            pushFeedMessage("❓ " + q);
         }
         else if (evt.startsWith("EXPLOSION:")) {
             String[] p = evt.split(":");
@@ -333,35 +359,71 @@ public class GameClient extends Application {
         StackPane overlay = new StackPane();
         overlay.setPrefSize(600, 600);
 
-        Rectangle bg = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.7));
+        Rectangle bg = new Rectangle(600, 600, Color.rgb(10, 10, 10, 0.6));
 
         VBox box = new VBox(14);
         box.setAlignment(Pos.CENTER);
         box.setPadding(new Insets(24));
-        box.setStyle("-fx-background-color: #1f1f2e; -fx-border-color: #e2b96f; -fx-border-width: 2px; -fx-border-radius: 8px;");
+        box.setStyle("-fx-background-color: #2b2b2b; -fx-border-color: #d9c57a; -fx-border-width: 4px; -fx-border-radius: 0; -fx-font-family: 'Courier New';");
 
-        Label title = new Label("🛒 KIOSK");
-        title.setStyle("-fx-text-fill: #e2b96f; -fx-font-size: 20px; -fx-font-weight: bold;");
+        Label title = new Label("KIOSK TERMINAL");
+        title.setStyle("-fx-text-fill: #d9c57a; -fx-font-size: 18px; -fx-font-weight: bold;");
 
         Button shieldBtn = new Button("Buy Shield (+5 DEF) - " + GameConstants.SHIELD_COST + " coins");
         shieldBtn.setOnAction(e -> out.println("BUY:SHIELD"));
-        shieldBtn.setStyle("-fx-background-color: #5b8def; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
+        shieldBtn.setStyle("-fx-background-color: #5b8def; -fx-text-fill: #111; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
 
         Button attackBtn = new Button("Buy Attack (+5 ATK) - " + GameConstants.ATTACK_COST + " coins");
         attackBtn.setOnAction(e -> out.println("BUY:ATTACK"));
-        attackBtn.setStyle("-fx-background-color: #e76f51; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
+        attackBtn.setStyle("-fx-background-color: #e76f51; -fx-text-fill: #111; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
+
+        Button appleBtn = new Button("Buy Apple (+1) - " + GameConstants.APPLE_COST + " coins");
+        appleBtn.setOnAction(e -> out.println("BUY:APPLE"));
+        appleBtn.setStyle("-fx-background-color: #8bc34a; -fx-text-fill: #111; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
+
+        Button questionBtn = new Button("Ask Question - " + GameConstants.QUESTION_COST + " coins");
+        questionBtn.setOnAction(e -> out.println("BUY:QUESTION"));
+        questionBtn.setStyle("-fx-background-color: #ffd166; -fx-text-fill: #111; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
 
         shopStatus = new Label("Select an upgrade.");
-        shopStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
+        shopStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px; -fx-font-family: 'Courier New';");
 
         Button closeBtn = new Button("Close");
         closeBtn.setOnAction(e -> setShopVisible(false));
-        closeBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+        closeBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white; -fx-font-family: 'Courier New';");
 
-        box.getChildren().addAll(title, shieldBtn, attackBtn, shopStatus, closeBtn);
+        box.getChildren().addAll(title, shieldBtn, attackBtn, appleBtn, questionBtn, shopStatus, closeBtn);
         overlay.getChildren().addAll(bg, box);
         overlay.setVisible(false);
         return overlay;
+    }
+
+    private VBox buildFeedBox() {
+        VBox box = new VBox(4);
+        box.setLayoutX(10);
+        box.setLayoutY(520);
+        box.setPrefWidth(580);
+        box.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 6px; -fx-border-color: #666; -fx-border-width: 2px;");
+        Label header = new Label("FEED");
+        header.setStyle("-fx-text-fill: #d9c57a; -fx-font-size: 11px; -fx-font-weight: bold; -fx-font-family: 'Courier New';");
+        box.getChildren().add(header);
+        return box;
+    }
+
+    private Group buildFogLayer() {
+        fogRect = new Rectangle(600, 600, Color.rgb(30, 30, 30, 0.55));
+        playerLight = new Circle(75, Color.TRANSPARENT);
+        playerLight.setBlendMode(BlendMode.CLEAR);
+        playerLight.setEffect(new GaussianBlur(25));
+
+        kioskLight = new Circle(120, Color.TRANSPARENT);
+        kioskLight.setBlendMode(BlendMode.CLEAR);
+        kioskLight.setEffect(new GaussianBlur(35));
+        kioskLight.setVisible(false);
+
+        Group group = new Group(fogRect, kioskLight, playerLight);
+        group.setMouseTransparent(true);
+        return group;
     }
 
     private boolean tryToggleShop() {
@@ -420,7 +482,48 @@ public class GameClient extends Application {
     private void updateShopStatus(String text, String color) {
         if (shopStatus != null) {
             shopStatus.setText(text);
-            shopStatus.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 12px;");
+            shopStatus.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 12px; -fx-font-family: 'Courier New';");
+        }
+    }
+
+    private void pushFeedMessage(String message) {
+        feedMessages.addFirst(message);
+        while (feedMessages.size() > 3) {
+            feedMessages.removeLast();
+        }
+        refreshFeed();
+    }
+
+    private void refreshFeed() {
+        if (feedBox == null || feedBox.getChildren().isEmpty()) {
+            return;
+        }
+        feedBox.getChildren().remove(1, feedBox.getChildren().size());
+        for (String msg : feedMessages) {
+            Label line = new Label(msg);
+            line.setStyle("-fx-text-fill: #e0e0e0; -fx-font-size: 11px; -fx-font-family: 'Courier New';");
+            feedBox.getChildren().add(line);
+        }
+    }
+
+    private void updateFogLights() {
+        if (fogLayer == null || gameWorld == null) {
+            return;
+        }
+        if (myGridX >= 0 && myGridY >= 0) {
+            double offsetX = gameWorld.getTranslateX();
+            double offsetY = gameWorld.getTranslateY();
+            playerLight.setCenterX(myGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX);
+            playerLight.setCenterY(myGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY);
+        }
+        if (kioskGridX >= 0 && kioskGridY >= 0) {
+            double offsetX = gameWorld.getTranslateX();
+            double offsetY = gameWorld.getTranslateY();
+            kioskLight.setCenterX(kioskGridX * TILE_SIZE + TILE_SIZE / 2.0 + offsetX);
+            kioskLight.setCenterY(kioskGridY * TILE_SIZE + TILE_SIZE / 2.0 + offsetY);
+            kioskLight.setVisible(true);
+        } else {
+            kioskLight.setVisible(false);
         }
     }
 
@@ -436,6 +539,8 @@ public class GameClient extends Application {
 
         String[] rows = mapData.split(";");
         mapGrid = new char[rows.length][rows[0].length()];
+        kioskGridX = -1;
+        kioskGridY = -1;
         for (int i = 0; i < rows.length; i++) {
             for (int j = 0; j < rows[i].length(); j++) {
                 char tile = rows[i].charAt(j);
@@ -482,20 +587,21 @@ public class GameClient extends Application {
                 }
                 else if (tile == '7') {
                     ImageView apple = new ImageView(appleImg);
-                    apple.setFitWidth(TILE_SIZE - 4);
-                    apple.setFitHeight(TILE_SIZE - 4);
-                    apple.setX((j * TILE_SIZE) + 2);
-                    apple.setY((i * TILE_SIZE) + 2);
+                    apple.setFitWidth(TILE_SIZE + 10);
+                    apple.setFitHeight(TILE_SIZE + 10);
+                    apple.setX((j * TILE_SIZE) - 5);
+                    apple.setY((i * TILE_SIZE) - 5);
                     gameWorld.getChildren().add(apple);
                 }
                 else if (tile == '8') {
                     ImageView kiosk = new ImageView(kioskImg);
-                    kiosk.setFitWidth(TILE_SIZE + 8);
-                    kiosk.setFitHeight(TILE_SIZE + 8);
-                    kiosk.setX((j * TILE_SIZE) - 4);
-                    kiosk.setY((i * TILE_SIZE) - 4);
-                    kiosk.setOnMouseClicked(e -> tryToggleShop());
+                    kiosk.setFitWidth(TILE_SIZE);
+                    kiosk.setFitHeight(TILE_SIZE);
+                    kiosk.setX(j * TILE_SIZE);
+                    kiosk.setY(i * TILE_SIZE);
                     gameWorld.getChildren().add(kiosk);
+                    kioskGridX = j;
+                    kioskGridY = i;
                 }
             }
         }
@@ -509,6 +615,7 @@ public class GameClient extends Application {
         for (Node n : projectilesOnScreen.values()) {
             n.toFront();
         }
+        updateFogLights();
     }
 
     // --------------------------------------------------------
@@ -745,6 +852,8 @@ public class GameClient extends Application {
             }
             return false;
         });
+
+        updateFogLights();
     }
 
     public static void main(String[] args) {

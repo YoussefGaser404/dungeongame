@@ -79,19 +79,14 @@ public class MapData {
                 placeItems(startX, startY, 2, itemsCount); // 2 = صندوق مقفول
                 placeItems(startX, startY, 4, itemsCount); // 4 = مفتاح
 
-                // 6. وضع الكشك (في أوضة النص)
+                // 6. وضع الكشك (في أوضة النص - على الحيط)
                 if (roomX == 1 && roomY == 1) {
-                    placeKiosk(startX, startY);
+                    placeKiosk(startX, startY, roomCenterY);
                 }
 
-                // 7. توزيع التفاح (نسبة 3% يطلع تفاحة في أي حتة فاضية)
-                for (int y = startY + 2; y < startY + ROOM_SIZE - 2; y++) {
-                    for (int x = startX + 2; x < startX + ROOM_SIZE - 2; x++) {
-                        if (grid[y][x] == 0 && random.nextDouble() < 0.03) {
-                            grid[y][x] = 7; // 7 = تفاحة
-                        }
-                    }
-                }
+                // 7. توزيع التفاح (عدد أقل في كل أوضة)
+                int applesCount = random.nextDouble() < 0.4 ? 1 : 0;
+                placeItems(startX, startY, 7, applesCount);
             }
         }
     }
@@ -108,15 +103,23 @@ public class MapData {
         }
     }
 
-    private void placeKiosk(int startX, int startY) {
-        int attempts = (ROOM_SIZE - 4) * (ROOM_SIZE - 4);
+    private void placeKiosk(int startX, int startY, int roomCenterY) {
+        int wallX = startX + ROOM_SIZE - 1;
+        int attempts = ROOM_SIZE * 2;
         for (int i = 0; i < attempts; i++) {
-            int px = startX + 2 + random.nextInt(ROOM_SIZE - 4);
             int py = startY + 2 + random.nextInt(ROOM_SIZE - 4);
-            if (grid[py][px] == 0) {
-                grid[py][px] = 8; // 8 = كشك
+            if (py == roomCenterY) {
+                continue;
+            }
+            if (grid[py][wallX] == 1 && grid[py][wallX - 1] == 0) {
+                grid[py][wallX] = 8; // 8 = كشك
                 return;
             }
+        }
+
+        int fallbackY = Math.min(startY + ROOM_SIZE - 3, roomCenterY + 2);
+        if (fallbackY != roomCenterY && grid[fallbackY][wallX] == 1) {
+            grid[fallbackY][wallX] = 8;
         }
     }
 
