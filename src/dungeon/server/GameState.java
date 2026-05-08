@@ -1,5 +1,6 @@
 package dungeon.server;
 
+import dungeon.model.GameConstants;
 import dungeon.model.MapData;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -17,8 +18,8 @@ public class GameState {
         public int coins = 0;
         public int hp = 100;
         public int applesCount = 0;
-        public int attack = 10;
-        public int defense = 0;
+        public int attack = GameConstants.DEFAULT_ATTACK;
+        public int defense = GameConstants.DEFAULT_DEFENSE;
         public int dirX = 1;
         public int dirY = 0;
         public String charClass;

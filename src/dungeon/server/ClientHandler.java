@@ -1,5 +1,6 @@
 package dungeon.server;
 
+import dungeon.model.GameConstants;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -101,9 +102,9 @@ public class ClientHandler implements Runnable {
                         }
                         String item = message.split(":")[1];
                         if (item.equals("SHIELD")) {
-                            handlePurchase(player, 100, "SHIELD", () -> player.defense += 5);
+                            handlePurchase(player, GameConstants.SHIELD_COST, "SHIELD", () -> player.defense += 5);
                         } else if (item.equals("ATTACK")) {
-                            handlePurchase(player, 150, "ATTACK", () -> player.attack += 5);
+                            handlePurchase(player, GameConstants.ATTACK_COST, "ATTACK", () -> player.attack += 5);
                         }
                     }
                 } else if (message.equals("ATTACK")) {

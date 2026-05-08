@@ -39,15 +39,15 @@ public class MapData {
                     }
                 }
 
-                int doorOffsetX = innerStartX + (ROOM_SIZE - 2) / 2;
-                int doorOffsetY = innerStartY + (ROOM_SIZE - 2) / 2;
+                int doorX = innerStartX + (ROOM_SIZE - 2) / 2;
+                int doorY = innerStartY + (ROOM_SIZE - 2) / 2;
 
                 // 3. فتح الأبواب والبيبان (5 = باب)
                 if (roomX < 2) {
-                    grid[doorOffsetY][startX + ROOM_SIZE - 1] = 5;
+                    grid[doorY][startX + ROOM_SIZE - 1] = 5;
                 }
                 if (roomY < 2) {
-                    grid[startY + ROOM_SIZE - 1][doorOffsetX] = 5;
+                    grid[startY + ROOM_SIZE - 1][doorX] = 5;
                 }
 
                 // 4. نظام الغرف الاحترافي (Patterns)
@@ -108,7 +108,8 @@ public class MapData {
     }
 
     private void placeKiosk(int startX, int startY) {
-        while (true) {
+        int attempts = (ROOM_SIZE - 4) * (ROOM_SIZE - 4);
+        for (int i = 0; i < attempts; i++) {
             int px = startX + 2 + random.nextInt(ROOM_SIZE - 4);
             int py = startY + 2 + random.nextInt(ROOM_SIZE - 4);
             if (grid[py][px] == 0) {

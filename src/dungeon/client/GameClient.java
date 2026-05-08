@@ -26,6 +26,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.util.Duration;
 
+import dungeon.model.GameConstants;
+
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -72,10 +74,6 @@ public class GameClient extends Application {
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
-    private static final int DEFAULT_ATTACK = 10;
-    private static final int DEFAULT_DEFENSE = 0;
-    private static final int SHIELD_COST = 100;
-    private static final int ATTACK_COST = 150;
     private int myId = -1;
     private int myGridX = -1;
     private int myGridY = -1;
@@ -195,7 +193,7 @@ public class GameClient extends Application {
             Rectangle fog = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.5));
 
             // واجهة المستخدم (UI)
-            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: " + DEFAULT_ATTACK + "  |  🛡 DEF: " + DEFAULT_DEFENSE + "  |  🎒 Inventory: Empty");
+            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: " + GameConstants.DEFAULT_ATTACK + "  |  🛡 DEF: " + GameConstants.DEFAULT_DEFENSE + "  |  🎒 Inventory: Empty");
             uiLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
             uiLabel.setLayoutX(10);
             uiLabel.setLayoutY(10);
@@ -345,11 +343,11 @@ public class GameClient extends Application {
         Label title = new Label("🛒 KIOSK");
         title.setStyle("-fx-text-fill: #e2b96f; -fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Button shieldBtn = new Button("Buy Shield (+5 DEF) - " + SHIELD_COST + " coins");
+        Button shieldBtn = new Button("Buy Shield (+5 DEF) - " + GameConstants.SHIELD_COST + " coins");
         shieldBtn.setOnAction(e -> out.println("BUY:SHIELD"));
         shieldBtn.setStyle("-fx-background-color: #5b8def; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
 
-        Button attackBtn = new Button("Buy Attack (+5 ATK) - " + ATTACK_COST + " coins");
+        Button attackBtn = new Button("Buy Attack (+5 ATK) - " + GameConstants.ATTACK_COST + " coins");
         attackBtn.setOnAction(e -> out.println("BUY:ATTACK"));
         attackBtn.setStyle("-fx-background-color: #e76f51; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
 
@@ -538,8 +536,8 @@ public class GameClient extends Application {
                 String hasKey = parts[6];
                 int hp = Integer.parseInt(parts[7]);
                 int apples = Integer.parseInt(parts[8]);
-                int attack = parts.length > 9 ? Integer.parseInt(parts[9]) : DEFAULT_ATTACK;
-                int defense = parts.length > 10 ? Integer.parseInt(parts[10]) : DEFAULT_DEFENSE;
+                int attack = Integer.parseInt(parts[9]);
+                int defense = Integer.parseInt(parts[10]);
 
                 activeIds.put(id, true);
 
