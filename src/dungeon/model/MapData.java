@@ -29,21 +29,22 @@ public class MapData {
                 int startX = roomX * ROOM_SIZE;
                 int startY = roomY * ROOM_SIZE;
 
+                int innerStartX = startX + (roomX == 0 ? 1 : 0);
+                int innerStartY = startY + (roomY == 0 ? 1 : 0);
+
                 // حفر الأرضية جوه الأوضة
-                for (int y = startY + 1; y < startY + ROOM_SIZE - 1; y++) {
-                    for (int x = startX + 1; x < startX + ROOM_SIZE - 1; x++) {
+                for (int y = innerStartY; y < startY + ROOM_SIZE - 1; y++) {
+                    for (int x = innerStartX; x < startX + ROOM_SIZE - 1; x++) {
                         grid[y][x] = 0;
                     }
                 }
 
                 // 3. فتح الأبواب والبيبان (5 = باب)
                 if (roomX < 2) {
-                    grid[startY + 7][startX + 14] = 5;
-                    grid[startY + 7][startX + 15] = 5;
+                    grid[startY + 7][startX + ROOM_SIZE - 1] = 5;
                 }
                 if (roomY < 2) {
-                    grid[startY + 14][startX + 7] = 5;
-                    grid[startY + 15][startX + 7] = 5;
+                    grid[startY + ROOM_SIZE - 1][startX + 7] = 5;
                 }
 
                 // 4. نظام الغرف الاحترافي (Patterns)
@@ -74,7 +75,12 @@ public class MapData {
                 placeItems(startX, startY, 2, itemsCount); // 2 = صندوق مقفول
                 placeItems(startX, startY, 4, itemsCount); // 4 = مفتاح
 
-                // 6. توزيع التفاح (نسبة 3% يطلع تفاحة في أي حتة فاضية)
+                // 6. وضع الكشك (في أوضة النص)
+                if (roomX == 1 && roomY == 1) {
+                    placeKiosk(startX, startY);
+                }
+
+                // 7. توزيع التفاح (نسبة 3% يطلع تفاحة في أي حتة فاضية)
                 for (int y = startY + 2; y < startY + ROOM_SIZE - 2; y++) {
                     for (int x = startX + 2; x < startX + ROOM_SIZE - 2; x++) {
                         if (grid[y][x] == 0 && random.nextDouble() < 0.03) {
@@ -94,6 +100,17 @@ public class MapData {
             if (grid[py][px] == 0) { // لو المكان فاضي (أرضية)
                 grid[py][px] = itemType;
                 placed++;
+            }
+        }
+    }
+
+    private void placeKiosk(int startX, int startY) {
+        while (true) {
+            int px = startX + 2 + random.nextInt(ROOM_SIZE - 4);
+            int py = startY + 2 + random.nextInt(ROOM_SIZE - 4);
+            if (grid[py][px] == 0) {
+                grid[py][px] = 8; // 8 = كشك
+                return;
             }
         }
     }

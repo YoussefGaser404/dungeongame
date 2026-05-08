@@ -17,6 +17,8 @@ public class GameState {
         public int coins = 0;
         public int hp = 100;
         public int applesCount = 0;
+        public int attack = 10;
+        public int defense = 0;
         public int dirX = 1;
         public int dirY = 0;
         public String charClass;
@@ -146,7 +148,7 @@ public class GameState {
                         prj.distance++;
 
                         if (prj.type == 1) { // السهم
-                            if (prj.distance >= prj.maxDistance || map.grid[prj.y][prj.x] == 1 || map.grid[prj.y][prj.x] == 3) {
+                            if (prj.distance >= prj.maxDistance || map.grid[prj.y][prj.x] == 1 || map.grid[prj.y][prj.x] == 3 || map.grid[prj.y][prj.x] == 8) {
                                 projectiles.remove(prj.id);
                                 continue;
                             }
@@ -158,7 +160,7 @@ public class GameState {
                                 }
                             }
                         } else if (prj.type == 2) { // القنبلة
-                            if (prj.distance >= prj.maxDistance || map.grid[prj.y][prj.x] == 1 || map.grid[prj.y][prj.x] == 3) {
+                            if (prj.distance >= prj.maxDistance || map.grid[prj.y][prj.x] == 1 || map.grid[prj.y][prj.x] == 3 || map.grid[prj.y][prj.x] == 8) {
                                 for(Enemy e : enemies) {
                                     if (Math.abs(e.x - prj.x) <= 1 && Math.abs(e.y - prj.y) <= 1) {
                                         e.hp -= 30;
@@ -200,7 +202,8 @@ public class GameState {
                                 if (!e.preparingAttack) {
                                     e.preparingAttack = true; // بيجهز الضربة
                                 } else {
-                                    target.hp -= 15;
+                                    int damage = Math.max(0, 15 - target.defense);
+                                    target.hp -= damage;
                                     if (target.hp < 0) target.hp = 0;
                                     e.preparingAttack = false;
                                 }
@@ -223,7 +226,7 @@ public class GameState {
                                     boolean canMove = false;
 
                                     if (e.type == 2) {
-                                        canMove = (tile != 5); // الشبح يخترق كل حاجة ما عدا الباب
+                                        canMove = (tile != 5 && tile != 8); // الشبح يخترق كل حاجة ما عدا الباب والكشك
                                     } else {
                                         canMove = (tile == 0 || tile == 4 || tile == 6 || tile == 7);
                                     }
@@ -274,7 +277,9 @@ public class GameState {
             sb.append(data.coins).append(",");
             sb.append(data.inventory.contains("Key") ? "1" : "0").append(",");
             sb.append(data.hp).append(",");
-            sb.append(data.applesCount).append(";");
+            sb.append(data.applesCount).append(",");
+            sb.append(data.attack).append(",");
+            sb.append(data.defense).append(";");
         });
 
         for (Enemy e : enemies) {

@@ -61,14 +61,24 @@ public class GameClient extends Application {
     private Image appleImg;
     private Image enemy1Img;
     private Image enemy2Img;
+    private Image kioskImg;
 
     private Label uiLabel;
     private Label goldPopUp;
+    private Label toastLabel;
     private Pane gameWorld;
+    private StackPane shopOverlay;
+    private Label shopStatus;
 
     private final int TILE_SIZE = 40;
     private final int ROOM_SIZE = 15;
+    private static final int SHIELD_COST = 100;
+    private static final int ATTACK_COST = 150;
     private int myId = -1;
+    private int myGridX = -1;
+    private int myGridY = -1;
+    private char[][] mapGrid;
+    private PrintWriter out;
 
     @Override
     public void start(Stage stage) {
@@ -167,6 +177,7 @@ public class GameClient extends Application {
             chestOpenImg = new Image("file:assets/chest_open.png");
             enemy1Img = new Image("file:assets/enemy1.png");
             enemy2Img = new Image("file:assets/enemy2.png");
+            kioskImg = new Image("file:assets/kiosk.png");
 
             classImages.put("warrior", new Image("file:assets/warrior.png"));
             classImages.put("rogue", new Image("file:assets/rogue.png"));
@@ -174,7 +185,7 @@ public class GameClient extends Application {
 
             Socket socket = new Socket("localhost", 5000);
             BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            out = new PrintWriter(socket.getOutputStream(), true);
 
             out.println("INIT:" + selectedClass);
 
@@ -182,7 +193,7 @@ public class GameClient extends Application {
             Rectangle fog = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.5));
 
             // واجهة المستخدم (UI)
-            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  🎒 Inventory: Empty");
+            uiLabel = new Label("❤ HP: 100  |  💰 Coins: 0  |  ⚔ ATK: 10  |  🛡 DEF: 0  |  🎒 Inventory: Empty");
             uiLabel.setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
             uiLabel.setLayoutX(10);
             uiLabel.setLayoutY(10);
@@ -193,7 +204,15 @@ public class GameClient extends Application {
             goldPopUp.setLayoutX(250);
             goldPopUp.setLayoutY(250);
 
-            Group rootGroup = new Group(gameWorld, fog, uiLabel, goldPopUp);
+            toastLabel = new Label("");
+            toastLabel.setStyle("-fx-text-fill: #ffffff; -fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
+            toastLabel.setOpacity(0);
+            toastLabel.setLayoutX(150);
+            toastLabel.setLayoutY(60);
+
+            shopOverlay = buildShopOverlay();
+
+            Group rootGroup = new Group(gameWorld, fog, uiLabel, goldPopUp, toastLabel, shopOverlay);
             Scene scene = new Scene(rootGroup, 600, 600);
 
             // أزرار التحكم
@@ -202,7 +221,11 @@ public class GameClient extends Application {
                 if (e.getCode() == KeyCode.S || e.getCode() == KeyCode.DOWN) out.println("DOWN");
                 if (e.getCode() == KeyCode.A || e.getCode() == KeyCode.LEFT) out.println("LEFT");
                 if (e.getCode() == KeyCode.D || e.getCode() == KeyCode.RIGHT) out.println("RIGHT");
-                if (e.getCode() == KeyCode.E) out.println("INTERACT");
+                if (e.getCode() == KeyCode.E) {
+                    if (!tryToggleShop()) {
+                        out.println("INTERACT");
+                    }
+                }
                 if (e.getCode() == KeyCode.F) out.println("USE_APPLE");
                 if (e.getCode() == KeyCode.SPACE) out.println("ATTACK");
             });
@@ -258,6 +281,24 @@ public class GameClient extends Application {
             moveUp.play();
             fade.play();
         }
+        else if (evt.startsWith("SHOP_OK:")) {
+            String item = evt.split(":")[1];
+            showToast("Purchased " + item + "!", "#00ff88");
+            updateShopStatus("Purchased " + item + " ✅", "#00ff88");
+        }
+        else if (evt.startsWith("SHOP_FAIL:")) {
+            String reason = evt.split(":")[1];
+            if (reason.equals("COINS")) {
+                showToast("Not enough coins!", "#ff5555");
+                updateShopStatus("Not enough coins ❌", "#ff5555");
+            } else if (reason.equals("NEED_KIOSK")) {
+                showToast("Get closer to the kiosk.", "#ffcc00");
+                updateShopStatus("Need to be near kiosk ⚠", "#ffcc00");
+            } else {
+                showToast("Purchase failed.", "#ff5555");
+                updateShopStatus("Purchase failed ❌", "#ff5555");
+            }
+        }
         else if (evt.startsWith("EXPLOSION:")) {
             String[] p = evt.split(":");
             double x = Integer.parseInt(p[1]) * TILE_SIZE;
@@ -288,6 +329,98 @@ public class GameClient extends Application {
         }
     }
 
+    private StackPane buildShopOverlay() {
+        StackPane overlay = new StackPane();
+        overlay.setPrefSize(600, 600);
+
+        Rectangle bg = new Rectangle(600, 600, Color.rgb(0, 0, 0, 0.7));
+
+        VBox box = new VBox(14);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(24));
+        box.setStyle("-fx-background-color: #1f1f2e; -fx-border-color: #e2b96f; -fx-border-width: 2px; -fx-border-radius: 8px;");
+
+        Label title = new Label("🛒 KIOSK");
+        title.setStyle("-fx-text-fill: #e2b96f; -fx-font-size: 20px; -fx-font-weight: bold;");
+
+        Button shieldBtn = new Button("Buy Shield (+5 DEF) - " + SHIELD_COST + " coins");
+        shieldBtn.setOnAction(e -> out.println("BUY:SHIELD"));
+        shieldBtn.setStyle("-fx-background-color: #5b8def; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
+
+        Button attackBtn = new Button("Buy Attack (+5 ATK) - " + ATTACK_COST + " coins");
+        attackBtn.setOnAction(e -> out.println("BUY:ATTACK"));
+        attackBtn.setStyle("-fx-background-color: #e76f51; -fx-text-fill: #0f0f1a; -fx-font-weight: bold;");
+
+        shopStatus = new Label("Select an upgrade.");
+        shopStatus.setStyle("-fx-text-fill: #cccccc; -fx-font-size: 12px;");
+
+        Button closeBtn = new Button("Close");
+        closeBtn.setOnAction(e -> setShopVisible(false));
+        closeBtn.setStyle("-fx-background-color: #444; -fx-text-fill: white;");
+
+        box.getChildren().addAll(title, shieldBtn, attackBtn, shopStatus, closeBtn);
+        overlay.getChildren().addAll(bg, box);
+        overlay.setVisible(false);
+        return overlay;
+    }
+
+    private boolean tryToggleShop() {
+        if (shopOverlay == null) {
+            return false;
+        }
+        if (shopOverlay.isVisible()) {
+            setShopVisible(false);
+            return true;
+        }
+        if (isNearKiosk()) {
+            setShopVisible(true);
+            return true;
+        }
+        showToast("No kiosk nearby.", "#ffcc00");
+        return false;
+    }
+
+    private void setShopVisible(boolean visible) {
+        shopOverlay.setVisible(visible);
+        if (visible) {
+            updateShopStatus("Select an upgrade.", "#cccccc");
+        }
+    }
+
+    private boolean isNearKiosk() {
+        if (mapGrid == null || myGridX < 0 || myGridY < 0) {
+            return false;
+        }
+        int[][] dirs = {{0,1}, {0,-1}, {1,0}, {-1,0}, {0,0}};
+        for (int[] d : dirs) {
+            int nx = myGridX + d[0];
+            int ny = myGridY + d[1];
+            if (ny >= 0 && ny < mapGrid.length && nx >= 0 && nx < mapGrid[0].length) {
+                if (mapGrid[ny][nx] == '8') {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void showToast(String text, String color) {
+        toastLabel.setText(text);
+        toastLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
+        toastLabel.setOpacity(1.0);
+        FadeTransition fade = new FadeTransition(Duration.millis(1500), toastLabel);
+        fade.setFromValue(1.0);
+        fade.setToValue(0.0);
+        fade.play();
+    }
+
+    private void updateShopStatus(String text, String color) {
+        if (shopStatus != null) {
+            shopStatus.setText(text);
+            shopStatus.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 12px;");
+        }
+    }
+
     // --------------------------------------------------------
     // رسم الخريطة (وتكبير الصناديق والمفاتيح)
     // --------------------------------------------------------
@@ -299,9 +432,11 @@ public class GameClient extends Application {
         );
 
         String[] rows = mapData.split(";");
+        mapGrid = new char[rows.length][rows[0].length()];
         for (int i = 0; i < rows.length; i++) {
             for (int j = 0; j < rows[i].length(); j++) {
                 char tile = rows[i].charAt(j);
+                mapGrid[i][j] = tile;
 
                 ImageView floor = new ImageView(floorImg);
                 floor.setX(j * TILE_SIZE);
@@ -350,6 +485,15 @@ public class GameClient extends Application {
                     apple.setY((i * TILE_SIZE) + 2);
                     gameWorld.getChildren().add(apple);
                 }
+                else if (tile == '8') {
+                    ImageView kiosk = new ImageView(kioskImg);
+                    kiosk.setFitWidth(TILE_SIZE + 8);
+                    kiosk.setFitHeight(TILE_SIZE + 8);
+                    kiosk.setX((j * TILE_SIZE) - 4);
+                    kiosk.setY((i * TILE_SIZE) - 4);
+                    kiosk.setOnMouseClicked(e -> tryToggleShop());
+                    gameWorld.getChildren().add(kiosk);
+                }
             }
         }
 
@@ -392,11 +536,15 @@ public class GameClient extends Application {
                 String hasKey = parts[6];
                 int hp = Integer.parseInt(parts[7]);
                 int apples = Integer.parseInt(parts[8]);
+                int attack = parts.length > 9 ? Integer.parseInt(parts[9]) : 10;
+                int defense = parts.length > 10 ? Integer.parseInt(parts[10]) : 0;
 
                 activeIds.put(id, true);
 
                 if (id == myId) {
-                    uiLabel.setText("❤ HP: " + hp + "  |  💰 Coins: " + coins + "  |  🎒 Inv: " + (hasKey.equals("1") ? "Key" : "Empty") + " (🍎x" + apples + ")");
+                    myGridX = gridX;
+                    myGridY = gridY;
+                    uiLabel.setText("❤ HP: " + hp + "  |  💰 Coins: " + coins + "  |  ⚔ ATK: " + attack + "  |  🛡 DEF: " + defense + "  |  🎒 Inv: " + (hasKey.equals("1") ? "Key" : "Empty") + " (🍎x" + apples + ")");
                     String color = hp > 50 ? "#00ff00" : (hp > 20 ? "orange" : "red");
                     uiLabel.setStyle("-fx-text-fill: " + color + "; -fx-font-size: 14px; -fx-font-weight: bold; -fx-background-color: rgba(0,0,0,0.7); -fx-padding: 8px; -fx-border-radius: 5px;");
                 }

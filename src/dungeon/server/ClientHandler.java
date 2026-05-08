@@ -54,6 +54,10 @@ public class ClientHandler implements Runnable {
                             if (tile == 0 || tile == 4 || tile == 5 || tile == 6 || tile == 7) {
                                 player.x = newX;
                                 player.y = newY;
+                                if (dx != 0 || dy != 0) {
+                                    player.dirX = dx;
+                                    player.dirY = dy;
+                                }
 
                                 if (tile == 4) { // لم المفتاح
                                     GameServer.gameState.map.grid[newY][newX] = 0;
@@ -88,6 +92,35 @@ public class ClientHandler implements Runnable {
                         }
                         if (mapChanged) broadcastMap();
                     }
+                } else if (message.startsWith("BUY:")) {
+                    GameState.PlayerInv player = GameServer.gameState.players.get(playerId);
+                    if (player != null) {
+                        if (!isNearKiosk(player)) {
+                            send("EVENT:SHOP_FAIL:NEED_KIOSK");
+                            continue;
+                        }
+                        String item = message.split(":")[1];
+                        if (item.equals("SHIELD")) {
+                            handlePurchase(player, 100, "SHIELD", () -> player.defense += 5);
+                        } else if (item.equals("ATTACK")) {
+                            handlePurchase(player, 150, "ATTACK", () -> player.attack += 5);
+                        }
+                    }
+                } else if (message.equals("ATTACK")) {
+                    GameState.PlayerInv player = GameServer.gameState.players.get(playerId);
+                    if (player != null) {
+                        int tx = player.x + player.dirX;
+                        int ty = player.y + player.dirY;
+                        if (tx >= 0 && tx < dungeon.model.MapData.COLS && ty >= 0 && ty < dungeon.model.MapData.ROWS) {
+                            for (GameState.Enemy e : GameServer.gameState.enemies) {
+                                if (e.x == tx && e.y == ty) {
+                                    e.hp -= player.attack;
+                                    break;
+                                }
+                            }
+                            GameServer.gameState.sendEventToAll("SLASH:" + tx + ":" + ty);
+                        }
+                    }
                 } else if (message.equals("USE_APPLE")) { // 🌟 نظام أكل التفاح
                     GameState.PlayerInv player = GameServer.gameState.players.get(playerId);
                     if (player != null && player.applesCount > 0 && player.hp < 100) {
@@ -106,5 +139,28 @@ public class ClientHandler implements Runnable {
     private void broadcastMap() {
         String m = GameServer.gameState.map.serializeMap();
         for (ClientHandler c : GameServer.clients) c.send(m);
+    }
+
+    private boolean isNearKiosk(GameState.PlayerInv player) {
+        int[][] dirs = {{0,1}, {0,-1}, {1,0}, {-1,0}, {0,0}};
+        for (int[] d : dirs) {
+            int cx = player.x + d[0], cy = player.y + d[1];
+            if (cx >= 0 && cx < dungeon.model.MapData.COLS && cy >= 0 && cy < dungeon.model.MapData.ROWS) {
+                if (GameServer.gameState.map.grid[cy][cx] == 8) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void handlePurchase(GameState.PlayerInv player, int cost, String item, Runnable applyItem) {
+        if (player.coins < cost) {
+            send("EVENT:SHOP_FAIL:COINS");
+            return;
+        }
+        player.coins -= cost;
+        applyItem.run();
+        send("EVENT:SHOP_OK:" + item);
     }
 }
